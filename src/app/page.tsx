@@ -2,21 +2,25 @@
 import React, { useState, useEffect } from 'react';
 import { getFolderItems } from './boxClient';
 
+type FileItem = {
+  id: string;
+  name: string;
+  type: string;
+};
+
 const App: React.FC = () => {
-  const [folderItems, setFolderItems] = useState<any[]>([]);
-  const [currentFolderId, setCurrentFolderId] = useState<string>('0'); // 
-  const [folderStack, setFolderStack] = useState<string[]>([]); 
-  const accessToken = '################'; 
+  const [folderItems, setFolderItems] = useState<FileItem[]>([]);
+  const [currentFolderId, setCurrentFolderId] = useState<string>('0'); 
+  const [folderStack, setFolderStack] = useState<string[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<FileItem[]>([]); 
+  const accessToken = '##################'; 
 
   useEffect(() => {
-    async function fetchFolderItems() {
-      try {
-        const items = await getFolderItems(accessToken, currentFolderId);
-        setFolderItems(items);
-      } catch (error) {
-        console.error('Error fetching folder items:', error);
-      }
-    }
+    const fetchFolderItems = () => {
+      getFolderItems(accessToken, currentFolderId)
+        .then(items => setFolderItems(items))
+        .catch(error => console.error('Error fetching folder items:', error));
+    };
     fetchFolderItems();
   }, [accessToken, currentFolderId]);
 
@@ -34,6 +38,20 @@ const App: React.FC = () => {
     }
   };
 
+  const isFileAdded = (fileId: string) => {
+    return selectedFiles.some(file => file.id === fileId);
+  };
+
+  const addFile = (file: FileItem) => {
+    if (!isFileAdded(file.id)) {
+      setSelectedFiles([...selectedFiles, { id: file.id, name: file.name, type: file.type }]);
+    }
+  };
+
+  const handleFileClick = (file: FileItem) => {
+    addFile(file);
+  };
+
   return (
     <div>
       <h1>Box Folders & Files</h1>
@@ -44,12 +62,23 @@ const App: React.FC = () => {
         {folderItems.map((item) => (
           <li key={item.id}>
             {item.type === 'folder' ? (
-              <span onClick={() => handleFolderClick(item.id)} style={{ cursor: 'pointer', color: 'blue' }}>
+              <span onClick={() => handleFolderClick(item.id)} style={{ cursor: 'pointer', color: 'lightblue' }}>
                 {item.name}
               </span>
             ) : (
-              item.name
+              <span onClick={() => handleFileClick(item)} style={{ cursor: 'pointer' }}>
+                {item.name}
+              </span>
             )}
+          </li>
+        ))}
+      </ul>
+      <br /><br />
+      <h2>Selected Files</h2>
+      <ul>
+        {selectedFiles.map((file, index) => (
+          <li key={index}>
+            {file.name} (ID: {file.id})
           </li>
         ))}
       </ul>
@@ -58,4 +87,3 @@ const App: React.FC = () => {
 };
 
 export default App;
-

@@ -1,21 +1,38 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { getFolderItems, createSharedLink } from './boxClient';
-// import { createSharedLinkWithExpiration } from './boxClient';
+import { getFolderItems, getDownloadUrl } from '@/lib/boxapi';
+import { mergePdfs } from '@/lib/pdfco';
+import { createMergePdfPayload } from '@/lib/resources';
 
-type FileItem = {
+type BoxItem = {
   id: string;
   name: string;
   type: string;
 };
 
+type FileLinkItem = {
+  fileId: string;
+  link: string;
+  type: string;
+}
+
+export const formatFileArray = (files: Array<FileLinkItem>): Array<string> => {
+  return files.map(file => file.link);
+}
+
 const App: React.FC = () => {
-  const [folderItems, setFolderItems] = useState<FileItem[]>([]);
+  const [folderItems, setFolderItems] = useState<BoxItem[]>([]);
   const [currentFolderId, setCurrentFolderId] = useState<string>('0'); 
   const [folderStack, setFolderStack] = useState<string[]>([]);
-  const [selectedFiles, setSelectedFiles] = useState<FileItem[]>([]); 
-  const [shareLinks, setShareLinks] = useState<{ fileId: string; link: string; type: string; }[]>([]);
-  const accessToken = '####################'; 
+  const [selectedFiles, setSelectedFiles] = useState<BoxItem[]>([]); 
+  const [shareLinks, setShareLinks] = useState<any[]>([]);
+  const [mergedPdfUrl, setMergedPdfUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+
+  const accessToken = '##############'; 
+  const PDFCO_API_KEY = '##############'; 
+
 
   useEffect(() => {
     const fetchFolderItems = () => {
@@ -44,39 +61,37 @@ const App: React.FC = () => {
     return selectedFiles.some(file => file.id === fileId);
   };
 
-  const addFile = (file: FileItem) => {
+  const addFile = (file: BoxItem) => {
     if (!isFileAdded(file.id)) {
       setSelectedFiles([...selectedFiles, { id: file.id, name: file.name, type: file.type }]);
     }
   };
 
-  const handleFileClick = (file: FileItem) => {
+  const handleFileClick = (file: BoxItem) => {
     addFile(file);
   };
 
-  const generateShareLinks = async (files: Array<FileItem>) => { //fileIds: Array<string>
+  const generateLinks = async (files: Array<BoxItem>) => { 
     const links = [];
     for (const file of files) {
       const fileId = file.id;
       try {
-        // Create a shared link with expiration time
-        // const linkWithExpiration = await createSharedLinkWithExpiration(accessToken, fileId);
-        // links.push({ fileId, link: linkWithExpiration, type: 'with expiration' });
-
-        // Create a shared link without expiration time
-        const linkWithoutExpiration = await createSharedLink(accessToken, fileId);
-        links.push({ fileId, link: linkWithoutExpiration, type: 'without expiration' });
+        const accessLinkBoxFile = await getDownloadUrl(accessToken, fileId);   //change function call to createSharedLink or ...WithExpiration
+        links.push({ fileId, link: accessLinkBoxFile, type: 'downloadurl' });
       } catch (error) {
         console.error(`Error creating shared link for file ${fileId}:`, error);
       }
     }
-    setShareLinks(links);
+    setShareLinks(links); 
   };
 
-  const formatLinks = () => {
+  const handleMergePdfs = async (urls: Array<string>) => {
+    const jsonPayload = createMergePdfPayload(urls); 
+    const { mergedPdfUrl, error } = await mergePdfs(PDFCO_API_KEY, jsonPayload); 
 
-  }
-  
+    setMergedPdfUrl(mergedPdfUrl);
+    setError(error); 
+  };
 
   return (
     <div>
@@ -99,7 +114,8 @@ const App: React.FC = () => {
           </li>
         ))}
       </ul>
-      <br /><br />
+
+      <br />
       <h2>Selected Files</h2>
       <ul>
         {selectedFiles.map((file, index) => (
@@ -108,9 +124,10 @@ const App: React.FC = () => {
           </li>
         ))}
       </ul>
-      
+
+      <br />
       <h1>Generate Share Links</h1>
-      <button onClick={() => generateShareLinks(selectedFiles)}>Generate Links</button>
+      <button onClick={() => generateLinks(selectedFiles)}>Generate Links</button>
       <ul>
         {shareLinks.map((filesToMerge, index) => (
           <li key={index}>
@@ -118,10 +135,28 @@ const App: React.FC = () => {
           </li>
         ))}
       </ul>
+
+      <br />
+      <h1>Merging PDFs Section</h1>
+      <button onClick={() => handleMergePdfs(formatFileArray(shareLinks))}>Merge PDFs</button>
+      {mergedPdfUrl && (
+        <div>
+            <h2>Merged PDF</h2>
+            <a href={mergedPdfUrl} target="_blank" rel="noopener noreferrer">Download Merged PDF</a>
+        </div>
+      )}
+      {error && (
+        <div style={{ color: 'red' }}>
+            <h2>Error</h2>
+            <p>{error}</p>
+        </div>
+      )}
+
     </div>
-    
-  
   );
 };
 
 export default App;
+
+
+// ILOVEPDF Error... Failed to initialize task: Internal Server Error - {"error":{"type":"ServerError","message":"Something on our end went wrong, probably we are not catching some exception we should catch! We are logging this and we will fix it.","code":"500"}}

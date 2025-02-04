@@ -19,3 +19,17 @@ body {
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.custom-select {
+  margin:10px;
+  background-color: #f0f0f0;
+  color: #333;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.custom-select:focus {
+  outline: none; /* Remove default blue border on focus */
+  border-color: #4A90E2; /* Add a custom border on focus */
+}
